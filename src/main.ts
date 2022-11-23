@@ -6,6 +6,7 @@ import {
   Setting,
   TFile,
 } from "obsidian";
+import path from "path";
 import safeRegex from "safe-regex";
 
 import { imageTagProcessor } from "./contentProcessor";
@@ -29,7 +30,8 @@ export default class LocalImagesPlugin extends Plugin {
     // const content = await this.app.vault.read(file);
     const content = await this.app.vault.cachedRead(file);
 
-    await this.ensureFolderExists(this.settings.mediaRootDirectory);
+    const mediaRoot = path.join(path.dirname(file.path), this.settings.mediaDirectoryName);
+    await this.ensureFolderExists(mediaRoot);
 
     const cleanedContent = this.settings.cleanContent
       ? cleanContent(content)
@@ -37,10 +39,10 @@ export default class LocalImagesPlugin extends Plugin {
     const fixedContent = await replaceAsync(
       cleanedContent,
       EXTERNAL_MEDIA_LINK_PATTERN,
-      imageTagProcessor(this.app, this.settings.mediaRootDirectory)
+      imageTagProcessor(this.app, mediaRoot, this.settings.mediaDirectoryName),
     );
 
-    if (content != fixedContent) {
+    if (content !== fixedContent) {
       this.modifiedQueue.remove(file);
       await this.app.vault.modify(file, fixedContent);
 
@@ -70,9 +72,9 @@ export default class LocalImagesPlugin extends Plugin {
 
     const notice = this.settings.showNotifications
       ? new Notice(
-          `Local Images \nStart processing. Total ${pagesCount} pages. `,
-          TIMEOUT_LIKE_INFINITY
-        )
+        `Local Images \nStart processing. Total ${pagesCount} pages. `,
+        TIMEOUT_LIKE_INFINITY
+      )
       : null;
 
     for (const [index, file] of files.entries()) {
@@ -116,7 +118,7 @@ export default class LocalImagesPlugin extends Plugin {
       // on("beforeChange") can not execute async function in event handler, so we use queue to pass modified pages to timeouted handler
       cm.on("change", async (instance: CodeMirror.Editor, changeObj: any) => {
         if (
-          changeObj.origin == "paste" &&
+          changeObj.origin === "paste" &&
           ANY_URL_PATTERN.test(changeObj.text)
         ) {
           this.enqueueActivePage();
@@ -165,8 +167,7 @@ export default class LocalImagesPlugin extends Plugin {
   displayError(error: Error | string, file?: TFile): void {
     if (file) {
       new Notice(
-        `LocalImages: Error while handling file ${
-          file.name
+        `LocalImages: Error while handling file ${file.name
         }, ${error.toString()}`
       );
     } else {
@@ -176,7 +177,7 @@ export default class LocalImagesPlugin extends Plugin {
     console.error(`LocalImages: error: ${error}`);
   }
 
-  onunload() {}
+  onunload() { }
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -333,9 +334,9 @@ class SettingTab extends PluginSettingTab {
       .setDesc("Folder to keep all downloaded media files.")
       .addText((text) =>
         text
-          .setValue(this.plugin.settings.mediaRootDirectory)
+          .setValue(this.plugin.settings.mediaDirectoryName)
           .onChange(async (value) => {
-            this.plugin.settings.mediaRootDirectory = value;
+            this.plugin.settings.mediaDirectoryName = value;
             await this.plugin.saveSettings();
           })
       );

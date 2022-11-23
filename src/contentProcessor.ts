@@ -17,7 +17,7 @@ import {
 } from "./config";
 import { linkHashes } from "./linksHash";
 
-export function imageTagProcessor(app: App, mediaDir: string) {
+export function imageTagProcessor(app: App, mediaDir: string, mediaName: string) {
   async function processImageTag(match: string, anchor: string, link: string) {
     if (!isUrl(link)) {
       return match;
@@ -44,7 +44,9 @@ export function imageTagProcessor(app: App, mediaDir: string) {
           }
 
           if (fileName) {
-            return `![${anchor}](${fileName})`;
+            // path.join deletes first "./".
+            const relative = [".", mediaName, path.basename(fileName)].join("/");
+            return `![${anchor}](${relative})`;
           } else {
             return match;
           }
